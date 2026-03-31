@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+﻿import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
 import { api } from './api'
 import './App.css'
 import { messages, type Locale } from './i18n'
@@ -6,6 +6,10 @@ import type { ScalarValue, SimulationSnapshot, SimulationStatus, ValueMap } from
 
 const DEFAULT_MODEL_NAME = 'traffic'
 const DEFAULT_SOURCE = ''
+
+function deriveModelName(fileName: string): string {
+  return fileName.replace(/\.[^.]+$/, '') || DEFAULT_MODEL_NAME
+}
 
 function inferInputKind(value: ScalarValue): 'boolean' | 'number' | 'text' {
   if (typeof value === 'boolean') return 'boolean'
@@ -116,6 +120,7 @@ function App() {
 
   const inputEntries = useMemo(() => sortEntries(snapshot?.inputs), [snapshot])
   const pollTimerRef = useRef<number | null>(null)
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
   const t = messages[locale]
 
   useEffect(() => {
@@ -162,7 +167,7 @@ function App() {
   }, [snapshot])
 
   useEffect(() => {
-    if (!snapshot) {
+    if (!snapshot?.modelPath) {
       if (pollTimerRef.current !== null) {
         window.clearInterval(pollTimerRef.current)
         pollTimerRef.current = null
@@ -170,7 +175,7 @@ function App() {
       return
     }
 
-    pollTimerRef.current = window.setInterval(async () => {
+    const refreshSnapshot = async () => {
       try {
         setIsRefreshing(true)
         const nextSnapshot = await api.getState()
@@ -181,6 +186,14 @@ function App() {
       } finally {
         setIsRefreshing(false)
       }
+    }
+
+    if (pollTimerRef.current !== null) {
+      window.clearInterval(pollTimerRef.current)
+    }
+
+    pollTimerRef.current = window.setInterval(() => {
+      void refreshSnapshot()
     }, pollIntervalMs)
 
     return () => {
@@ -189,7 +202,7 @@ function App() {
         pollTimerRef.current = null
       }
     }
-  }, [pollIntervalMs, snapshot, t.pollingFailed])
+  }, [pollIntervalMs, snapshot?.modelPath, t.pollingFailed])
 
   async function withBusyState<T>(action: () => Promise<T>, onSuccess?: (value: T) => void) {
     setIsBusy(true)
@@ -216,6 +229,32 @@ function App() {
         setSuccessMessage(`${t.loaded} ${formatModelPath(nextSnapshot.modelPath)}`)
       },
     )
+  }
+
+  async function handleSourceFilePicked(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    try {
+      const text = await file.text()
+      const nextModelName = deriveModelName(file.name)
+
+      setSource(text)
+      setModelName(nextModelName)
+
+      await withBusyState(
+        () => api.loadModel({ modelName: nextModelName, source: text }),
+        (nextSnapshot) => {
+          setSnapshot(nextSnapshot)
+          setStatus(nextSnapshot.status)
+          setSuccessMessage(`${t.fileLoaded}: ${file.name}`)
+        },
+      )
+    } catch {
+      setError(t.fileLoadFailed)
+    } finally {
+      event.target.value = ''
+    }
   }
 
   async function handleLifecycleAction(action: () => Promise<SimulationSnapshot>, message: string) {
@@ -262,31 +301,53 @@ function App() {
     [selectedInputs],
   )
 
-  const floatingAction = useMemo(() => {
+  const lifecyclePrimary = useMemo(() => {
     if (!snapshot) return null
 
     if (status === 'RUNNING') {
       return {
         label: t.pause,
-        icon: 'Ⅱ',
-        onClick: () => void handleLifecycleAction(() => api.pause(), t.simulationPaused),
+        icon: '\u23F8',
+        message: t.simulationPaused,
+        action: () => api.pause(),
       }
     }
 
     if (status === 'PAUSED') {
       return {
         label: t.resume,
-        icon: '▶',
-        onClick: () => void handleLifecycleAction(() => api.resume(), t.simulationResumed),
+        icon: '\u25B6',
+        message: t.simulationResumed,
+        action: () => api.resume(),
       }
     }
 
     return {
       label: t.start,
-      icon: '▶',
-      onClick: () => void handleLifecycleAction(() => api.start(), t.simulationStarted),
+      icon: '\u25B6',
+      message: t.simulationStarted,
+      action: () => api.start(),
     }
-  }, [snapshot, status, t.pause, t.resume, t.start, t.simulationPaused, t.simulationResumed, t.simulationStarted])
+  }, [
+    snapshot,
+    status,
+    t.pause,
+    t.resume,
+    t.start,
+    t.simulationPaused,
+    t.simulationResumed,
+    t.simulationStarted,
+  ])
+
+  const floatingAction = useMemo(() => {
+    if (!lifecyclePrimary) return null
+
+    return {
+      label: lifecyclePrimary.label,
+      icon: lifecyclePrimary.icon,
+      onClick: () => void handleLifecycleAction(lifecyclePrimary.action, lifecyclePrimary.message),
+    }
+  }, [lifecyclePrimary])
 
   return (
     <div className="app-shell">
@@ -339,7 +400,7 @@ function App() {
               title={t.theme}
               aria-label={t.theme}
             >
-              {theme === 'dark' ? '☀' : '☾'}
+              {theme === 'dark' ? '\u2600' : '\u263E'}
             </button>
           </div>
         </div>
@@ -371,15 +432,26 @@ function App() {
           />
 
           <div className="editor-actions">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".post,.txt,text/plain"
+              hidden
+              onChange={(event) => void handleSourceFilePicked(event)}
+            />
             <button className="primary-button" disabled={isBusy} onClick={() => void handleLoadModel()}>
               {t.loadModel}
             </button>
             <button
-              className="ghost-button"
-              disabled={isBusy || !snapshot}
-              onClick={() => void handleLifecycleAction(() => api.reloadModel(), t.reloadedCurrent)}
+              className="ghost-button file-trigger-button"
+              type="button"
+              disabled={isBusy}
+              onClick={() => fileInputRef.current?.click()}
             >
-              {t.reloadCurrent}
+              <span className="button-icon" aria-hidden="true">
+                {'\uD83D\uDCC2'}
+              </span>
+              <span>{t.loadFromFile}</span>
             </button>
           </div>
         </section>
@@ -407,24 +479,13 @@ function App() {
             <div className="control-grid">
               <button
                 className="primary-button"
-                disabled={isBusy || !snapshot}
-                onClick={() => void handleLifecycleAction(() => api.start(), t.simulationStarted)}
+                disabled={isBusy || !lifecyclePrimary}
+                onClick={() =>
+                  lifecyclePrimary &&
+                  void handleLifecycleAction(lifecyclePrimary.action, lifecyclePrimary.message)
+                }
               >
-                {t.start}
-              </button>
-              <button
-                className="ghost-button"
-                disabled={isBusy || !snapshot}
-                onClick={() => void handleLifecycleAction(() => api.pause(), t.simulationPaused)}
-              >
-                {t.pause}
-              </button>
-              <button
-                className="ghost-button"
-                disabled={isBusy || !snapshot}
-                onClick={() => void handleLifecycleAction(() => api.resume(), t.simulationResumed)}
-              >
-                {t.resume}
+                {lifecyclePrimary?.label ?? t.start}
               </button>
               <button
                 className="ghost-button"
@@ -434,7 +495,7 @@ function App() {
                 {t.stop}
               </button>
               <button
-                className="ghost-button"
+                className="ghost-button control-wide"
                 disabled={isBusy || !snapshot}
                 onClick={() => void handleLifecycleAction(() => api.step(), t.singleStepExecuted)}
               >
@@ -570,7 +631,18 @@ function App() {
             title={t.stop}
             aria-label={t.stop}
           >
-            ■
+            {'\u25A0'}
+          </button>
+
+          <button
+            className="floating-tool"
+            type="button"
+            onClick={() => void handleLifecycleAction(() => api.step(), t.singleStepExecuted)}
+            disabled={isBusy || !snapshot}
+            title={t.singleStep}
+            aria-label={t.singleStep}
+          >
+            {'\u2192'}
           </button>
 
           <button
@@ -580,7 +652,7 @@ function App() {
             title="Up"
             aria-label="Up"
           >
-            ↑
+            {'\u2191'}
           </button>
         </div>
       ) : null}
@@ -589,3 +661,5 @@ function App() {
 }
 
 export default App
+
+

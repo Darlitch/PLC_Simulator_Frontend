@@ -427,6 +427,19 @@
   border-color: var(--border);
 }
 
+.file-trigger-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding-inline: 1rem 1.1rem;
+  color: var(--muted);
+}
+
+.button-icon {
+  font-size: 1rem;
+  line-height: 1;
+}
+
 .icon-button {
   width: 48px;
   min-width: 48px;
@@ -443,6 +456,10 @@
 .control-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.control-wide {
+  grid-column: 1 / -1;
 }
 
 .message-stack {
