@@ -1,0 +1,29 @@
+﻿node_modules/
+dist/
+.vite/
+
+.env
+.env.*
+!.env.example
+
+coverage/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+.idea/
+*.iml
+.vscode/
+
+.DS_Store
+Thumbs.db
+
+# Local build outputs / caches
+.cache/
+.tmp/
+tmp/
+
+# TypeScript incremental build info
+*.tsbuildinfo
