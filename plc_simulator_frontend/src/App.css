@@ -447,6 +447,17 @@
   line-height: 1.55;
 }
 
+.monaco-editor-shell {
+  overflow: hidden;
+  padding: 0;
+}
+
+.monaco-editor-shell .monaco-editor,
+.monaco-editor-shell .monaco-editor-background,
+.monaco-editor-shell .margin {
+  background: transparent !important;
+}
+
 .primary-button,
 .ghost-button,
 .icon-button {

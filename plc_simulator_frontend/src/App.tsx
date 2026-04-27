@@ -1,5 +1,6 @@
 ﻿import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
 import { api } from './api'
+import Editor from '@monaco-editor/react'
 import './App.css'
 import { messages, type Locale } from './i18n'
 import { getOrCreateSessionId } from './session'
@@ -493,6 +494,8 @@ function App() {
     }
   }, [lifecyclePrimary])
 
+  const editorTheme = theme === 'dark' ? 'vs-dark' : 'light'
+
   return (
     <div className="app-shell">
       <div className="ambient ambient-left" />
@@ -589,12 +592,24 @@ function App() {
                 </label>
               </div>
 
-              <textarea
-                className="source-editor"
-                value={source}
-                onChange={(event) => setSource(event.target.value)}
-                spellCheck={false}
-              />
+              <div className="source-editor monaco-editor-shell">
+                <Editor
+                  height="100%"
+                  defaultLanguage="plaintext"
+                  language="plaintext"
+                  theme={editorTheme}
+                  value={source}
+                  onChange={(value) => setSource(value ?? '')}
+                  options={{
+                    automaticLayout: true,
+                    fontSize: 14,
+                    minimap: { enabled: false },
+                    scrollBeyondLastLine: false,
+                    tabSize: 2,
+                    wordWrap: 'on',
+                  }}
+                />
+              </div>
 
               <div className="editor-actions">
                 <input
@@ -644,12 +659,24 @@ function App() {
                   {snapshot?.modelPath ? editorTabLabels.javaMissing : editorTabLabels.javaEmpty}
                 </div>
               ) : (
-                <textarea
-                  className="source-editor generated-code-view"
-                  value={activeJavaSource}
-                  readOnly
-                  spellCheck={false}
-                />
+                <div className="source-editor generated-code-view monaco-editor-shell">
+                  <Editor
+                    height="100%"
+                    defaultLanguage="java"
+                    language="java"
+                    theme={editorTheme}
+                    value={activeJavaSource}
+                    options={{
+                      automaticLayout: true,
+                      domReadOnly: true,
+                      fontSize: 14,
+                      minimap: { enabled: false },
+                      readOnly: true,
+                      scrollBeyondLastLine: false,
+                      wordWrap: 'off',
+                    }}
+                  />
+                </div>
               )}
             </div>
           )}
