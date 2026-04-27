@@ -4,6 +4,7 @@ import type {
   SimulationStatus,
   UpdateInputsPayload,
 } from './types'
+import { getOrCreateSessionId } from './session'
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? ''
 
@@ -12,6 +13,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     cache: 'no-store',
     headers: {
       'Content-Type': 'application/json',
+      'Session-Id': getOrCreateSessionId(),
       ...(init?.headers ?? {}),
     },
     ...init,

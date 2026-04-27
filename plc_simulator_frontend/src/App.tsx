@@ -2,10 +2,28 @@
 import { api } from './api'
 import './App.css'
 import { messages, type Locale } from './i18n'
+import { getOrCreateSessionId } from './session'
 import type { ScalarValue, SimulationSnapshot, SimulationStatus, ValueMap } from './types'
+
 
 const DEFAULT_MODEL_NAME = 'traffic'
 const DEFAULT_SOURCE = ''
+
+function editorStateKey(suffix: 'model-name' | 'source'): string {
+  return `plc-simulator-${getOrCreateSessionId()}-${suffix}`
+}
+
+function loadStoredEditorState(): { modelName: string; source: string } {
+  return {
+    modelName: window.localStorage.getItem(editorStateKey('model-name')) ?? DEFAULT_MODEL_NAME,
+    source: window.localStorage.getItem(editorStateKey('source')) ?? DEFAULT_SOURCE,
+  }
+}
+
+function persistEditorState(modelName: string, source: string): void {
+  window.localStorage.setItem(editorStateKey('model-name'), modelName)
+  window.localStorage.setItem(editorStateKey('source'), source)
+}
 
 function deriveModelName(fileName: string): string {
   return fileName.replace(/\.[^.]+$/, '') || DEFAULT_MODEL_NAME
@@ -105,8 +123,9 @@ function DataPanel({ labels, subtitle, data, accent = 'cyan' }: DataPanelProps) 
 function App() {
   const [locale, setLocale] = useState<Locale>('ru')
   const [theme, setTheme] = useState<'dark' | 'light'>('dark')
-  const [modelName, setModelName] = useState(DEFAULT_MODEL_NAME)
-  const [source, setSource] = useState(DEFAULT_SOURCE)
+  const initialEditorState = useMemo(() => loadStoredEditorState(), [])
+  const [modelName, setModelName] = useState(initialEditorState.modelName)
+  const [source, setSource] = useState(initialEditorState.source)
   const [snapshot, setSnapshot] = useState<SimulationSnapshot | null>(null)
   const [status, setStatus] = useState<SimulationStatus | null>(null)
   const [isBusy, setIsBusy] = useState(false)
@@ -126,6 +145,39 @@ function App() {
   useEffect(() => {
     document.documentElement.dataset.theme = theme
   }, [theme])
+
+  useEffect(() => {
+    persistEditorState(modelName, source)
+  }, [modelName, source])
+
+  useEffect(() => {
+    let cancelled = false
+
+    const restoreSessionState = async () => {
+      try {
+        const nextSnapshot = await api.getState()
+
+        if (cancelled) return
+
+        setSnapshot(nextSnapshot)
+        setStatus(nextSnapshot.status)
+
+        if (nextSnapshot.modelPath) {
+          setSuccessMessage(`${t.loaded} ${formatModelPath(nextSnapshot.modelPath)}`)
+        }
+      } catch (restoreError) {
+        if (cancelled) return
+        setError(restoreError instanceof Error ? restoreError.message : t.unexpectedError)
+      }
+    }
+
+    void restoreSessionState()
+
+    return () => {
+      cancelled = true
+    }
+  }, [t.loaded, t.unexpectedError])
+
 
   useEffect(() => {
     const handleScroll = () => {
