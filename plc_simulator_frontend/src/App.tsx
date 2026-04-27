@@ -16,7 +16,7 @@ const DEFAULT_SOURCE = ''
 
 type EditorViewMode = 'post' | 'java'
 
-function editorStateKey(suffix: 'model-name' | 'source' | 'had-runtime'): string {
+function editorStateKey(suffix: 'model-name' | 'source'): string {
   return `plc-simulator-${getOrCreateSessionId()}-${suffix}`
 }
 
@@ -30,14 +30,6 @@ function loadStoredEditorState(): { modelName: string; source: string } {
 function persistEditorState(modelName: string, source: string): void {
   window.localStorage.setItem(editorStateKey('model-name'), modelName)
   window.localStorage.setItem(editorStateKey('source'), source)
-}
-
-function setHadRuntimeLoaded(value: boolean): void {
-  window.localStorage.setItem(editorStateKey('had-runtime'), value ? 'true' : 'false')
-}
-
-function getHadRuntimeLoaded(): boolean {
-  return window.localStorage.getItem(editorStateKey('had-runtime')) === 'true'
 }
 
 function deriveModelName(fileName: string): string {
@@ -164,7 +156,6 @@ function App() {
   const [isBusy, setIsBusy] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [sessionWasUnloaded, setSessionWasUnloaded] = useState(false)
   const [successMessage, setSuccessMessage] = useState(messages.ru.ready)
   const [draftInputs, setDraftInputs] = useState<Record<string, string>>({})
   const [selectedInputs, setSelectedInputs] = useState<Record<string, boolean>>({})
@@ -241,13 +232,9 @@ function App() {
         setSnapshot(nextSnapshot)
         setStatus(nextSnapshot.status)
 
-        const hadRuntimeBeforeRefresh = getHadRuntimeLoaded()
         const hasRuntimeState = nextSnapshot.modelPath !== null
 
-        setSessionWasUnloaded(hadRuntimeBeforeRefresh && !hasRuntimeState)
-
         if (hasRuntimeState) {
-          setHadRuntimeLoaded(true)
           setSuccessMessage(`${t.loaded} ${formatModelPath(nextSnapshot.modelPath)}`)
           void loadGeneratedSources()
         } else {
@@ -375,8 +362,6 @@ function App() {
       (loadedSnapshot) => {
         setSnapshot(loadedSnapshot)
         setStatus(loadedSnapshot.status)
-        setSessionWasUnloaded(false)
-        setHadRuntimeLoaded(loadedSnapshot.modelPath !== null)
         setSuccessMessage(`${t.loaded} ${formatModelPath(loadedSnapshot.modelPath)}`)
       },
     )
@@ -402,8 +387,6 @@ function App() {
         (loadedSnapshot) => {
           setSnapshot(loadedSnapshot)
           setStatus(loadedSnapshot.status)
-          setSessionWasUnloaded(false)
-          setHadRuntimeLoaded(loadedSnapshot.modelPath !== null)
           setSuccessMessage(`${t.fileLoaded}: ${file.name}`)
         },
       )
@@ -422,8 +405,6 @@ function App() {
     await withBusyState(action, (nextSnapshot) => {
       setSnapshot(nextSnapshot)
       setStatus(nextSnapshot.status)
-      setSessionWasUnloaded(false)
-      setHadRuntimeLoaded(nextSnapshot.modelPath !== null)
       setSuccessMessage(message)
     })
   }
@@ -454,8 +435,6 @@ function App() {
       (nextSnapshot) => {
         setSnapshot(nextSnapshot)
         setStatus(nextSnapshot.status)
-        setSessionWasUnloaded(false)
-        setHadRuntimeLoaded(nextSnapshot.modelPath !== null)
         setSuccessMessage(`${t.appliedInputChanges}: ${Object.keys(values).length}`)
       },
     )
@@ -725,11 +704,6 @@ function App() {
 
             <div className="message-stack">
               <div className="message success">{successMessage}</div>
-              {sessionWasUnloaded && (
-                <div className="message warning">
-                  {'Сессия была выгружена из-за неактивности. Код модели сохранён в редакторе, можно нажать «Загрузить модель» для восстановления.'}
-                </div>
-              )}
               {error && <div className="message error">{error}</div>}
             </div>
           </section>

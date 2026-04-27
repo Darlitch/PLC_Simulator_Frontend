@@ -1,4 +1,5 @@
-﻿import type {
+import type {
+  ApiErrorResponse,
   GeneratedSourcesResponse,
   LoadModelPayload,
   SimulationSnapshot,
@@ -8,6 +9,22 @@
 import { getOrCreateSessionId } from './session'
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? ''
+
+function normalizeApiError(payload: ApiErrorResponse): string {
+  const message = payload.message?.trim()
+  const details = payload.details?.trim()
+
+  if (message && details && details !== message) {
+    return `${message}
+${details}`
+  }
+
+  if (message) {
+    return message
+  }
+
+  return 'Request failed'
+}
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, {
@@ -20,12 +37,21 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     ...init,
   })
 
+  const contentType = response.headers.get('content-type') ?? ''
+
   if (!response.ok) {
-    const text = await response.text()
+    if (contentType.includes('application/json')) {
+      const payload = (await response.json()) as Partial<ApiErrorResponse>
+      throw new Error(normalizeApiError({
+        code: payload.code ?? 'REQUEST_FAILED',
+        message: payload.message ?? `Request failed with status ${response.status}`,
+        details: payload.details ?? null,
+      }))
+    }
+
+    const text = (await response.text()).trim()
     throw new Error(text || `Request failed with status ${response.status}`)
   }
-
-  const contentType = response.headers.get('content-type') ?? ''
 
   if (contentType.includes('application/json')) {
     return response.json() as Promise<T>

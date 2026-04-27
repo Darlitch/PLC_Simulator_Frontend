@@ -540,6 +540,9 @@
   padding: 0.9rem 1rem;
   font-size: 0.92rem;
   border: 1px solid var(--border);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .message.success {
