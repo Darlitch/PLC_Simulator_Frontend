@@ -1,4 +1,5 @@
-import type {
+﻿import type {
+  GeneratedSourcesResponse,
   LoadModelPayload,
   SimulationSnapshot,
   SimulationStatus,
@@ -45,6 +46,10 @@ export const api = {
     return request<SimulationSnapshot>('/api/model/reload', {
       method: 'POST',
     })
+  },
+
+  getGeneratedSources() {
+    return request<GeneratedSourcesResponse>('/api/model/generated-sources')
   },
 
   start() {

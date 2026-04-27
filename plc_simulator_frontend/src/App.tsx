@@ -3,11 +3,18 @@ import { api } from './api'
 import './App.css'
 import { messages, type Locale } from './i18n'
 import { getOrCreateSessionId } from './session'
-import type { ScalarValue, SimulationSnapshot, SimulationStatus, ValueMap } from './types'
-
+import type {
+  GeneratedSourcesResponse,
+  ScalarValue,
+  SimulationSnapshot,
+  SimulationStatus,
+  ValueMap,
+} from './types'
 
 const DEFAULT_MODEL_NAME = 'traffic'
 const DEFAULT_SOURCE = ''
+
+type EditorViewMode = 'post' | 'java'
 
 function editorStateKey(suffix: 'model-name' | 'source' | 'had-runtime'): string {
   return `plc-simulator-${getOrCreateSessionId()}-${suffix}`
@@ -72,6 +79,19 @@ function sortEntries<T>(record: Record<string, T> | undefined): Array<[string, T
   return Object.entries(record ?? {}).sort(([a], [b]) => a.localeCompare(b))
 }
 
+function sortGeneratedSourceFiles(fileNames: string[], programFileName: string | null): string[] {
+  const priority = ['Simulation.java', programFileName, 'BaseProcess.java', 'IProcess.java'].filter(
+    (value): value is string => Boolean(value),
+  )
+
+  const prioritySet = new Set(priority)
+  const tail = fileNames
+    .filter((fileName) => !prioritySet.has(fileName))
+    .sort((left, right) => left.localeCompare(right))
+
+  return [...priority.filter((fileName) => fileNames.includes(fileName)), ...tail]
+}
+
 function parseDraftValue(raw: string, kind: 'boolean' | 'number' | 'text'): ScalarValue {
   if (kind === 'boolean') return raw === 'true'
   if (kind === 'number') {
@@ -134,6 +154,11 @@ function App() {
   const initialEditorState = useMemo(() => loadStoredEditorState(), [])
   const [modelName, setModelName] = useState(initialEditorState.modelName)
   const [source, setSource] = useState(initialEditorState.source)
+  const [editorViewMode, setEditorViewMode] = useState<EditorViewMode>('post')
+  const [generatedSources, setGeneratedSources] = useState<Record<string, string>>({})
+  const [programJavaFile, setProgramJavaFile] = useState<string | null>(null)
+  const [activeJavaFile, setActiveJavaFile] = useState<string | null>(null)
+  const [isGeneratedSourcesLoading, setIsGeneratedSourcesLoading] = useState(false)
   const [snapshot, setSnapshot] = useState<SimulationSnapshot | null>(null)
   const [status, setStatus] = useState<SimulationStatus | null>(null)
   const [isBusy, setIsBusy] = useState(false)
@@ -147,9 +172,33 @@ function App() {
   const [showFloatingAction, setShowFloatingAction] = useState(false)
 
   const inputEntries = useMemo(() => sortEntries(snapshot?.inputs), [snapshot])
+  const generatedSourceFileNames = useMemo(
+    () => sortGeneratedSourceFiles(Object.keys(generatedSources), programJavaFile),
+    [generatedSources, programJavaFile],
+  )
+  const activeJavaSource = activeJavaFile ? generatedSources[activeJavaFile] ?? '' : ''
   const pollTimerRef = useRef<number | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const t = messages[locale]
+  const editorTabLabels = locale === 'ru'
+    ? {
+        post: 'poST-код',
+        java: 'Java-код',
+        generated: 'Сгенерированный Java-код',
+        javaEmpty: 'Сначала загрузите модель, чтобы увидеть сгенерированный Java-код.',
+        javaMissing: 'Для текущей модели не найдено сгенерированных .java файлов.',
+        javaLoadFailed: 'Не удалось получить сгенерированный Java-код',
+        filesWord: 'файла',
+      }
+    : {
+        post: 'poST code',
+        java: 'Java code',
+        generated: 'Generated Java sources',
+        javaEmpty: 'Load a model first to inspect its generated Java code.',
+        javaMissing: 'No generated .java files were found for the current model.',
+        javaLoadFailed: 'Failed to load generated Java sources',
+        filesWord: 'files',
+      }
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme
@@ -158,6 +207,27 @@ function App() {
   useEffect(() => {
     persistEditorState(modelName, source)
   }, [modelName, source])
+
+  async function loadGeneratedSources(preferredFileName?: string | null): Promise<void> {
+    setIsGeneratedSourcesLoading(true)
+
+    try {
+      const nextSources: GeneratedSourcesResponse = await api.getGeneratedSources()
+      const orderedFiles = sortGeneratedSourceFiles(Object.keys(nextSources.files), nextSources.programFileName)
+
+      setGeneratedSources(nextSources.files)
+      setProgramJavaFile(nextSources.programFileName)
+      setActiveJavaFile((current) => {
+        if (preferredFileName && nextSources.files[preferredFileName]) return preferredFileName
+        if (current && nextSources.files[current]) return current
+        return orderedFiles[0] ?? null
+      })
+    } catch (generatedError) {
+      setError(generatedError instanceof Error ? generatedError.message : editorTabLabels.javaLoadFailed)
+    } finally {
+      setIsGeneratedSourcesLoading(false)
+    }
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -179,6 +249,11 @@ function App() {
         if (hasRuntimeState) {
           setHadRuntimeLoaded(true)
           setSuccessMessage(`${t.loaded} ${formatModelPath(nextSnapshot.modelPath)}`)
+          void loadGeneratedSources()
+        } else {
+          setGeneratedSources({})
+          setProgramJavaFile(null)
+          setActiveJavaFile(null)
         }
       } catch (restoreError) {
         if (cancelled) return
@@ -193,6 +268,13 @@ function App() {
     }
   }, [t.loaded, t.unexpectedError])
 
+  useEffect(() => {
+    if (editorViewMode !== 'java' || !snapshot?.modelPath || isGeneratedSourcesLoading || generatedSourceFileNames.length > 0) {
+      return
+    }
+
+    void loadGeneratedSources()
+  }, [editorViewMode, generatedSourceFileNames.length, isGeneratedSourcesLoading, snapshot?.modelPath])
 
   useEffect(() => {
     const handleScroll = () => {
@@ -288,16 +370,20 @@ function App() {
   }
 
   async function handleLoadModel() {
-    await withBusyState(
+    const nextSnapshot = await withBusyState(
       () => api.loadModel({ modelName, source }),
-      (nextSnapshot) => {
-        setSnapshot(nextSnapshot)
-        setStatus(nextSnapshot.status)
+      (loadedSnapshot) => {
+        setSnapshot(loadedSnapshot)
+        setStatus(loadedSnapshot.status)
         setSessionWasUnloaded(false)
-        setHadRuntimeLoaded(nextSnapshot.modelPath !== null)
-        setSuccessMessage(`${t.loaded} ${formatModelPath(nextSnapshot.modelPath)}`)
+        setHadRuntimeLoaded(loadedSnapshot.modelPath !== null)
+        setSuccessMessage(`${t.loaded} ${formatModelPath(loadedSnapshot.modelPath)}`)
       },
     )
+
+    if (nextSnapshot?.modelPath) {
+      void loadGeneratedSources()
+    }
   }
 
   async function handleSourceFilePicked(event: ChangeEvent<HTMLInputElement>) {
@@ -311,16 +397,20 @@ function App() {
       setSource(text)
       setModelName(nextModelName)
 
-      await withBusyState(
+      const nextSnapshot = await withBusyState(
         () => api.loadModel({ modelName: nextModelName, source: text }),
-        (nextSnapshot) => {
-          setSnapshot(nextSnapshot)
-          setStatus(nextSnapshot.status)
+        (loadedSnapshot) => {
+          setSnapshot(loadedSnapshot)
+          setStatus(loadedSnapshot.status)
           setSessionWasUnloaded(false)
-          setHadRuntimeLoaded(nextSnapshot.modelPath !== null)
+          setHadRuntimeLoaded(loadedSnapshot.modelPath !== null)
           setSuccessMessage(`${t.fileLoaded}: ${file.name}`)
         },
       )
+
+      if (nextSnapshot?.modelPath) {
+        void loadGeneratedSources()
+      }
     } catch {
       setError(t.fileLoadFailed)
     } finally {
@@ -485,50 +575,105 @@ function App() {
         <section className="panel editor-panel">
           <header className="panel-header">
             <div>
-              <p className="eyebrow">{t.modelSource}</p>
+              <p className="eyebrow">{editorViewMode === 'post' ? t.modelSource : editorTabLabels.generated}</p>
             </div>
             <span className="pill">
-              {source.length.toLocaleString()} {t.chars}
+              {editorViewMode === 'post'
+                ? `${source.length.toLocaleString()} ${t.chars}`
+                : `${generatedSourceFileNames.length} ${editorTabLabels.filesWord}`}
             </span>
           </header>
 
-          <div className="editor-toolbar">
-            <label className="field">
-              <span>{t.modelName}</span>
-              <input value={modelName} onChange={(event) => setModelName(event.target.value)} placeholder="traffic" />
-            </label>
-          </div>
-
-          <textarea
-            className="source-editor"
-            value={source}
-            onChange={(event) => setSource(event.target.value)}
-            spellCheck={false}
-          />
-
-          <div className="editor-actions">
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".post,.txt,text/plain"
-              hidden
-              onChange={(event) => void handleSourceFilePicked(event)}
-            />
-            <button className="primary-button" disabled={isBusy} onClick={() => void handleLoadModel()}>
-              {t.loadModel}
+          <div className="editor-mode-tabs" role="tablist" aria-label="Editor mode tabs">
+            <button
+              type="button"
+              className={`editor-mode-tab ${editorViewMode === 'post' ? 'is-active' : ''}`}
+              onClick={() => setEditorViewMode('post')}
+            >
+              {editorTabLabels.post}
             </button>
             <button
-              className="ghost-button file-trigger-button"
               type="button"
-              disabled={isBusy}
-              onClick={() => fileInputRef.current?.click()}
+              className={`editor-mode-tab ${editorViewMode === 'java' ? 'is-active' : ''}`}
+              onClick={() => setEditorViewMode('java')}
             >
-              <span className="button-icon" aria-hidden="true">
-                {'\uD83D\uDCC2'}
-              </span>
-              <span>{t.loadFromFile}</span>
+              {editorTabLabels.java}
             </button>
           </div>
+
+          {editorViewMode === 'post' ? (
+            <>
+              <div className="editor-toolbar">
+                <label className="field">
+                  <span>{t.modelName}</span>
+                  <input value={modelName} onChange={(event) => setModelName(event.target.value)} placeholder="traffic" />
+                </label>
+              </div>
+
+              <textarea
+                className="source-editor"
+                value={source}
+                onChange={(event) => setSource(event.target.value)}
+                spellCheck={false}
+              />
+
+              <div className="editor-actions">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".post,.txt,text/plain"
+                  hidden
+                  onChange={(event) => void handleSourceFilePicked(event)}
+                />
+                <button className="primary-button" disabled={isBusy} onClick={() => void handleLoadModel()}>
+                  {t.loadModel}
+                </button>
+                <button
+                  className="ghost-button file-trigger-button"
+                  type="button"
+                  disabled={isBusy}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <span className="button-icon" aria-hidden="true">
+                    {'\uD83D\uDCC2'}
+                  </span>
+                  <span>{t.loadFromFile}</span>
+                </button>
+              </div>
+            </>
+          ) : (
+            <div className="generated-code-shell">
+              <div className="generated-code-header">
+                <div className="generated-file-tabs" role="tablist" aria-label="Generated Java files">
+                  {generatedSourceFileNames.map((fileName) => (
+                    <button
+                      key={fileName}
+                      type="button"
+                      className={`generated-file-tab ${activeJavaFile === fileName ? 'is-active' : ''}`}
+                      onClick={() => setActiveJavaFile(fileName)}
+                    >
+                      {fileName}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {isGeneratedSourcesLoading ? (
+                <div className="generated-empty-state">{t.syncing}</div>
+              ) : generatedSourceFileNames.length === 0 ? (
+                <div className="generated-empty-state">
+                  {snapshot?.modelPath ? editorTabLabels.javaMissing : editorTabLabels.javaEmpty}
+                </div>
+              ) : (
+                <textarea
+                  className="source-editor generated-code-view"
+                  value={activeJavaSource}
+                  readOnly
+                  spellCheck={false}
+                />
+              )}
+            </div>
+          )}
         </section>
 
         <div className="side-column">
@@ -741,5 +886,3 @@ function App() {
 }
 
 export default App
-
-

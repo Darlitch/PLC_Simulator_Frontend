@@ -1,4 +1,4 @@
-export type SimulationStatus = 'STOPPED' | 'RUNNING' | 'PAUSED'
+﻿export type SimulationStatus = 'STOPPED' | 'RUNNING' | 'PAUSED'
 
 export type ScalarValue = string | number | boolean | null
 
@@ -13,6 +13,11 @@ export interface SimulationSnapshot {
   vars: ValueMap
   processStates: Record<string, string>
   processTimers: Record<string, number>
+}
+
+export interface GeneratedSourcesResponse {
+  programFileName: string | null
+  files: Record<string, string>
 }
 
 export interface LoadModelPayload {
