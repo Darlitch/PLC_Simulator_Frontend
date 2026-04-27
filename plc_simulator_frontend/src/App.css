@@ -223,6 +223,10 @@
   min-height: 780px;
 }
 
+.editor-panel-header {
+  margin-bottom: -2px;
+}
+
 .control-panel,
 .input-panel {
   display: flex;
@@ -326,8 +330,8 @@
   font-weight: 600;
 }
 
+.editor-topbar,
 .editor-mode-tabs,
-.editor-toolbar,
 .editor-actions,
 .control-grid,
 .message-stack {
@@ -336,18 +340,25 @@
   flex-wrap: wrap;
 }
 
+.editor-topbar {
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
 .editor-mode-tabs {
-  margin-top: 4px;
+  margin-top: 0;
+  flex-wrap: nowrap;
 }
 
 .editor-mode-tab,
 .generated-file-tab {
-  min-height: 42px;
-  border-radius: 14px;
+  min-height: 38px;
+  border-radius: 12px;
   border: 1px solid var(--border);
   background: var(--panel-muted);
   color: var(--muted);
-  padding: 0.7rem 1rem;
+  padding: 0.6rem 0.9rem;
   font-weight: 700;
   cursor: pointer;
   transition: transform 150ms ease, background 150ms ease, border-color 150ms ease, color 150ms ease;
@@ -386,6 +397,18 @@
   gap: 10px;
 }
 
+.compact-tabs {
+  gap: 8px;
+}
+
+.compact-tabs .generated-file-tab {
+  min-height: 34px;
+  border-radius: 10px;
+  padding: 0.45rem 0.8rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
 .generated-code-view {
   flex: 1;
   min-height: 620px;
@@ -404,8 +427,28 @@
   padding: 2rem;
 }
 
-.editor-toolbar {
-  margin-top: -2px;
+.editor-model-field {
+  min-width: min(100%, 280px);
+  max-width: 320px;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.editor-model-field span {
+  font-size: 0.76rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  white-space: nowrap;
+  margin: 0;
+}
+
+.editor-model-field input {
+  width: min(220px, 100%);
+  min-height: 38px;
+  padding: 0.65rem 0.85rem;
+  border-radius: 12px;
 }
 
 .field input,
@@ -800,6 +843,24 @@
     width: 100%;
     justify-content: space-between;
     flex-wrap: wrap;
+  }
+
+  .editor-topbar {
+    align-items: stretch;
+  }
+
+  .editor-mode-tabs {
+    flex-wrap: wrap;
+  }
+
+  .editor-model-field {
+    flex-direction: column;
+    align-items: stretch;
+    max-width: none;
+  }
+
+  .editor-model-field input {
+    width: 100%;
   }
 
   .control-grid,

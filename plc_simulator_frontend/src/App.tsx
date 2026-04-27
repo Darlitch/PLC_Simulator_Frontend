@@ -555,43 +555,40 @@ function App() {
 
       <main className="dashboard-grid">
         <section className="panel editor-panel">
-          <header className="panel-header">
+          <header className="panel-header editor-panel-header">
             <div>
               <p className="eyebrow">{editorViewMode === 'post' ? t.modelSource : editorTabLabels.generated}</p>
             </div>
-            <span className="pill">
-              {editorViewMode === 'post'
-                ? `${source.length.toLocaleString()} ${t.chars}`
-                : `${generatedSourceFileNames.length} ${editorTabLabels.filesWord}`}
-            </span>
           </header>
 
-          <div className="editor-mode-tabs" role="tablist" aria-label="Editor mode tabs">
-            <button
-              type="button"
-              className={`editor-mode-tab ${editorViewMode === 'post' ? 'is-active' : ''}`}
-              onClick={() => setEditorViewMode('post')}
-            >
-              {editorTabLabels.post}
-            </button>
-            <button
-              type="button"
-              className={`editor-mode-tab ${editorViewMode === 'java' ? 'is-active' : ''}`}
-              onClick={() => setEditorViewMode('java')}
-            >
-              {editorTabLabels.java}
-            </button>
+          <div className="editor-topbar">
+            <div className="editor-mode-tabs" role="tablist" aria-label="Editor mode tabs">
+              <button
+                type="button"
+                className={`editor-mode-tab ${editorViewMode === 'post' ? 'is-active' : ''}`}
+                onClick={() => setEditorViewMode('post')}
+              >
+                {editorTabLabels.post}
+              </button>
+              <button
+                type="button"
+                className={`editor-mode-tab ${editorViewMode === 'java' ? 'is-active' : ''}`}
+                onClick={() => setEditorViewMode('java')}
+              >
+                {editorTabLabels.java}
+              </button>
+            </div>
+
+            {editorViewMode === 'post' ? (
+              <label className="field editor-model-field">
+                <span>{t.modelName}</span>
+                <input value={modelName} onChange={(event) => setModelName(event.target.value)} placeholder="traffic" />
+              </label>
+            ) : null}
           </div>
 
           {editorViewMode === 'post' ? (
             <>
-              <div className="editor-toolbar">
-                <label className="field">
-                  <span>{t.modelName}</span>
-                  <input value={modelName} onChange={(event) => setModelName(event.target.value)} placeholder="traffic" />
-                </label>
-              </div>
-
               <div className="source-editor monaco-editor-shell">
                 <Editor
                   height="100%"
@@ -638,7 +635,7 @@ function App() {
           ) : (
             <div className="generated-code-shell">
               <div className="generated-code-header">
-                <div className="generated-file-tabs" role="tablist" aria-label="Generated Java files">
+                <div className="generated-file-tabs compact-tabs" role="tablist" aria-label="Generated Java files">
                   {generatedSourceFileNames.map((fileName) => (
                     <button
                       key={fileName}
