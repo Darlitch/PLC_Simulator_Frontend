@@ -427,30 +427,6 @@
   padding: 2rem;
 }
 
-.editor-model-field {
-  min-width: min(100%, 280px);
-  max-width: 320px;
-  flex-direction: row;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 10px;
-}
-
-.editor-model-field span {
-  font-size: 0.76rem;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  white-space: nowrap;
-  margin: 0;
-}
-
-.editor-model-field input {
-  width: min(220px, 100%);
-  min-height: 38px;
-  padding: 0.65rem 0.85rem;
-  border-radius: 12px;
-}
-
 .field input,
 .mini-field select,
 .input-row input,
@@ -851,16 +827,6 @@
 
   .editor-mode-tabs {
     flex-wrap: wrap;
-  }
-
-  .editor-model-field {
-    flex-direction: column;
-    align-items: stretch;
-    max-width: none;
-  }
-
-  .editor-model-field input {
-    width: 100%;
   }
 
   .control-grid,

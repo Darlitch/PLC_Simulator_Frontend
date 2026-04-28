@@ -12,29 +12,22 @@ import type {
   ValueMap,
 } from './types'
 
-const DEFAULT_MODEL_NAME = 'traffic'
 const DEFAULT_SOURCE = ''
 
 type EditorViewMode = 'post' | 'java'
 
-function editorStateKey(suffix: 'model-name' | 'source'): string {
+function editorStateKey(suffix: 'source'): string {
   return `plc-simulator-${getOrCreateSessionId()}-${suffix}`
 }
 
-function loadStoredEditorState(): { modelName: string; source: string } {
+function loadStoredEditorState(): { source: string } {
   return {
-    modelName: window.localStorage.getItem(editorStateKey('model-name')) ?? DEFAULT_MODEL_NAME,
     source: window.localStorage.getItem(editorStateKey('source')) ?? DEFAULT_SOURCE,
   }
 }
 
-function persistEditorState(modelName: string, source: string): void {
-  window.localStorage.setItem(editorStateKey('model-name'), modelName)
+function persistEditorState(source: string): void {
   window.localStorage.setItem(editorStateKey('source'), source)
-}
-
-function deriveModelName(fileName: string): string {
-  return fileName.replace(/\.[^.]+$/, '') || DEFAULT_MODEL_NAME
 }
 
 function inferInputKind(value: ScalarValue): 'boolean' | 'number' | 'text' {
@@ -145,7 +138,6 @@ function App() {
   const [locale, setLocale] = useState<Locale>('ru')
   const [theme, setTheme] = useState<'dark' | 'light'>('dark')
   const initialEditorState = useMemo(() => loadStoredEditorState(), [])
-  const [modelName, setModelName] = useState(initialEditorState.modelName)
   const [source, setSource] = useState(initialEditorState.source)
   const [editorViewMode, setEditorViewMode] = useState<EditorViewMode>('post')
   const [generatedSources, setGeneratedSources] = useState<Record<string, string>>({})
@@ -197,8 +189,8 @@ function App() {
   }, [theme])
 
   useEffect(() => {
-    persistEditorState(modelName, source)
-  }, [modelName, source])
+    persistEditorState(source)
+  }, [source])
 
   async function loadGeneratedSources(preferredFileName?: string | null): Promise<void> {
     setIsGeneratedSourcesLoading(true)
@@ -236,7 +228,7 @@ function App() {
         const hasRuntimeState = nextSnapshot.modelPath !== null
 
         if (hasRuntimeState) {
-          setSuccessMessage(`${t.loaded} ${formatModelPath(nextSnapshot.modelPath)}`)
+          setSuccessMessage(t.modelLoaded)
           void loadGeneratedSources()
         } else {
           setGeneratedSources({})
@@ -359,11 +351,11 @@ function App() {
 
   async function handleLoadModel() {
     const nextSnapshot = await withBusyState(
-      () => api.loadModel({ modelName, source }),
+      () => api.loadModel({ source }),
       (loadedSnapshot) => {
         setSnapshot(loadedSnapshot)
         setStatus(loadedSnapshot.status)
-        setSuccessMessage(`${t.loaded} ${formatModelPath(loadedSnapshot.modelPath)}`)
+        setSuccessMessage(t.modelLoaded)
       },
     )
 
@@ -378,17 +370,14 @@ function App() {
 
     try {
       const text = await file.text()
-      const nextModelName = deriveModelName(file.name)
-
       setSource(text)
-      setModelName(nextModelName)
 
       const nextSnapshot = await withBusyState(
-        () => api.loadModel({ modelName: nextModelName, source: text }),
+        () => api.loadModel({ source: text }),
         (loadedSnapshot) => {
           setSnapshot(loadedSnapshot)
           setStatus(loadedSnapshot.status)
-          setSuccessMessage(`${t.fileLoaded}: ${file.name}`)
+          setSuccessMessage(t.modelLoaded)
         },
       )
 
@@ -578,13 +567,6 @@ function App() {
                 {editorTabLabels.java}
               </button>
             </div>
-
-            {editorViewMode === 'post' ? (
-              <label className="field editor-model-field">
-                <span>{t.modelName}</span>
-                <input value={modelName} onChange={(event) => setModelName(event.target.value)} placeholder="traffic" />
-              </label>
-            ) : null}
           </div>
 
           {editorViewMode === 'post' ? (
@@ -685,13 +667,6 @@ function App() {
               <p className="eyebrow">{t.lifecycle}</p>
 
               <div className="control-header-meta">
-                <div className="header-model compact">
-                  <span className="header-model-label">{t.model}</span>
-                  <strong title={formatModelPath(snapshot?.modelPath ?? null)}>
-                    {formatModelPath(snapshot?.modelPath ?? null) || t.noModelLoaded}
-                  </strong>
-                </div>
-
                 <div className={`status-card inline compact status-inline ${statusTone(status)}`}>
                   <span className="status-dot" />
                   <strong>{status ?? t.notLoaded}</strong>

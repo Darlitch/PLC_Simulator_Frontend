@@ -27,7 +27,6 @@ export interface ApiErrorResponse {
 }
 
 export interface LoadModelPayload {
-  modelName: string
   source: string
 }
 
