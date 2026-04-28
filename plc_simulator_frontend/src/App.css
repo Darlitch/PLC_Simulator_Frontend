@@ -28,7 +28,6 @@
 }
 
 .topbar,
-.hero-strip,
 .dashboard-grid {
   position: relative;
   z-index: 1;
@@ -90,15 +89,6 @@
   border: 1px solid var(--border);
   border-radius: 18px;
   background: var(--panel-muted);
-}
-
-.mini-field,
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  color: var(--muted);
-  font-size: 0.92rem;
 }
 
 .settings-chip {
@@ -280,12 +270,6 @@
   gap: 12px;
 }
 
-.panel-header h3 {
-  margin: 0;
-  font-size: 1.2rem;
-  letter-spacing: -0.03em;
-}
-
 .pill {
   display: inline-flex;
   align-items: center;
@@ -396,15 +380,11 @@
   padding: 2rem;
 }
 
-.field input,
-.mini-field select,
 .input-row input,
 .input-row select {
   min-height: 44px;
 }
 
-.field input,
-.mini-field select,
 .source-editor,
 .input-row input,
 .input-row select {
@@ -418,8 +398,6 @@
   transition: border-color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
 }
 
-.field input:focus,
-.mini-field select:focus,
 .source-editor:focus,
 .input-row input:focus,
 .input-row select:focus {
@@ -553,17 +531,6 @@
   background: rgba(16, 185, 129, 0.14);
   color: #147a55;
   border-color: rgba(16, 185, 129, 0.22);
-}
-
-.message.warning {
-  background: rgba(245, 158, 11, 0.12);
-  color: #fde68a;
-}
-
-:root[data-theme='light'] .message.warning {
-  background: rgba(245, 158, 11, 0.14);
-  color: #9a6700;
-  border-color: rgba(245, 158, 11, 0.24);
 }
 
 .message.error {
@@ -765,9 +732,6 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .control-meta {
-    grid-template-columns: 1fr;
-  }
 }
 
 @media (max-width: 900px) {
