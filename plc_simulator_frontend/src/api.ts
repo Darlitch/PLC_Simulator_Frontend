@@ -3,7 +3,6 @@ import type {
   GeneratedSourcesResponse,
   LoadModelPayload,
   SimulationSnapshot,
-  SimulationStatus,
   UpdateInputsPayload,
 } from './types'
 import { getOrCreateSessionId } from './session'
@@ -68,12 +67,6 @@ export const api = {
     })
   },
 
-  reloadModel() {
-    return request<SimulationSnapshot>('/api/model/reload', {
-      method: 'POST',
-    })
-  },
-
   getGeneratedSources() {
     return request<GeneratedSourcesResponse>('/api/model/generated-sources')
   },
@@ -110,10 +103,6 @@ export const api = {
 
   getState() {
     return request<SimulationSnapshot>('/api/simulation/state')
-  },
-
-  getStatus() {
-    return request<SimulationStatus>('/api/simulation/status')
   },
 
   updateInputs(payload: UpdateInputsPayload) {

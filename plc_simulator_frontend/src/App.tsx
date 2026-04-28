@@ -135,7 +135,6 @@ function App() {
   const [snapshot, setSnapshot] = useState<SimulationSnapshot | null>(null)
   const [status, setStatus] = useState<SimulationStatus | null>(null)
   const [isBusy, setIsBusy] = useState(false)
-  const [isRefreshing, setIsRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState(messages.ru.ready)
   const [draftInputs, setDraftInputs] = useState<Record<string, string>>({})
@@ -160,7 +159,6 @@ function App() {
         javaEmpty: 'Сначала загрузите модель, чтобы увидеть сгенерированный Java-код.',
         javaMissing: 'Для текущей модели не найдено сгенерированных .java файлов.',
         javaLoadFailed: 'Не удалось получить сгенерированный Java-код',
-        filesWord: 'файла',
       }
     : {
         post: 'poST code',
@@ -169,7 +167,6 @@ function App() {
         javaEmpty: 'Load a model first to inspect its generated Java code.',
         javaMissing: 'No generated .java files were found for the current model.',
         javaLoadFailed: 'Failed to load generated Java sources',
-        filesWord: 'files',
       }
 
   useEffect(() => {
@@ -294,14 +291,11 @@ function App() {
 
     const refreshSnapshot = async () => {
       try {
-        setIsRefreshing(true)
         const nextSnapshot = await api.getState()
         setSnapshot(nextSnapshot)
         setStatus(nextSnapshot.status)
       } catch (pollError) {
         setError(pollError instanceof Error ? pollError.message : t.pollingFailed)
-      } finally {
-        setIsRefreshing(false)
       }
     }
 
