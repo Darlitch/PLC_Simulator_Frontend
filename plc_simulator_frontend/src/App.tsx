@@ -36,18 +36,6 @@ function inferInputKind(value: ScalarValue): 'boolean' | 'number' | 'text' {
   return 'text'
 }
 
-function formatModelPath(modelPath: string | null): string {
-  if (!modelPath) return 'No model loaded'
-
-  try {
-    const url = new URL(modelPath)
-    const parts = url.pathname.split('/').filter(Boolean)
-    return parts.at(-1) ?? modelPath
-  } catch {
-    return modelPath
-  }
-}
-
 function statusTone(status: SimulationStatus | null): string {
   switch (status) {
     case 'RUNNING':
@@ -246,7 +234,7 @@ function App() {
     return () => {
       cancelled = true
     }
-  }, [t.loaded, t.unexpectedError])
+  }, [t.modelLoaded, t.unexpectedError])
 
   useEffect(() => {
     if (editorViewMode !== 'java' || !snapshot?.modelPath || isGeneratedSourcesLoading || generatedSourceFileNames.length > 0) {
