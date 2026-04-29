@@ -101,6 +101,10 @@ function DataPanel({ labels, subtitle, data, accent = 'cyan' }: DataPanelProps) 
           <div className="empty-state">{labels.noDataYet}</div>
         ) : (
           <table className="kv-table">
+            <colgroup>
+              <col className="kv-col-name" />
+              <col className="kv-col-value" />
+            </colgroup>
             <thead>
               <tr>
                 <th>{labels.name}</th>

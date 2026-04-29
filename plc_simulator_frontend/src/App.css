@@ -538,6 +538,12 @@
   color: #fca5a5;
 }
 
+:root[data-theme='light'] .message.error {
+  background: rgba(239, 68, 68, 0.14);
+  color: #a12626;
+  border-color: rgba(239, 68, 68, 0.24);
+}
+
 .input-list {
   display: flex;
   flex-direction: column;
@@ -611,7 +617,16 @@
 .kv-table {
   width: 100%;
   border-collapse: collapse;
+  table-layout: fixed;
   font-size: 0.92rem;
+}
+
+.kv-col-name {
+  width: 52%;
+}
+
+.kv-col-value {
+  width: 48%;
 }
 
 .kv-table th,
